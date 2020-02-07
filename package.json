@@ -1,0 +1,15 @@
+{
+  "name": "discord-role-call",
+  "version": "1.0.2",
+  "description": "Class able to facilitate the management of role call in Discord",
+  "main": "RoleCall.js",
+  "peerDependencies": {
+    "discord.js": "^11.5.1"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": "https://github.com/wakfi/discord-role-call",
+  "author": "wakfi",
+  "license": "MIT"
+}
