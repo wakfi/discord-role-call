@@ -1,14 +1,6 @@
 const Discord = require('discord.js');
 const Collection = Discord.Collection;
 
-//------------------------------------------------------//
-//			RoleCall.js v1.0.3  ~~ by ~~  wakfi 		//
-//			  -source code available at- 				//
-//	   https://github.com/wakfi/discord-role-call		//
-//		  Open Source Under MIT License (2020)			//
-//------------------------------------------------------//
-
-
 class RoleCall
 {
 	/*
