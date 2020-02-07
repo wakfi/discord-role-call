@@ -1,6 +1,6 @@
 {
   "name": "discord-role-call",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Class able to facilitate the management of role call in Discord",
   "main": "RoleCall.js",
   "peerDependencies": {
