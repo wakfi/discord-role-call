@@ -18,6 +18,7 @@ class RoleCall
 	 to call more roles.
 		
 	*/
+	
 	constructor(client,config) 
 	{
 		this.client = client; //this is the syntax for declaring object properties in JS
@@ -65,7 +66,7 @@ class RoleCall
 			Promise.all(reactArr).then(async done => 
 			{
 				this.client.setMaxListeners(this.client.getMaxListeners() + 2);
-				
+				this.__retryQueue = 0;
 				this.client.on(`messageReactionAdd`, this.reactionAdded.bind(this));
 				this.client.on(`messageReactionRemove`, this.reactionRemoved.bind(this));
 				console.log(`done`);
@@ -75,7 +76,7 @@ class RoleCall
 	}
 	
 	//function called by event listener to handle reactionAdd events
-	reactionAdded(reaction,user)
+	reactionAdded(reaction,user,retry = false)
 	{
 		if(reaction.message.id != this.message.id) return;
 		if(!this.reactions.has(reaction.emoji.name)) return;
@@ -85,12 +86,25 @@ class RoleCall
 		if(!guild.roles.get(this.roles.get(reaction.emoji.name).id).members.has(user.id)) //check if user already has role
 		{
 			guild.members.get(user.id).addRole(this.roles.get(reaction.emoji.name))
-			.catch(err => console.error(`Error adding role ${this.roles.get(reaction.emoji.name).name} to user ${user.username}:\n\t${err}`));
+			.catch(err => 
+			{
+				if(!retry)
+				{
+					console.error(`Error adding role ${this.roles.get(reaction.emoji.name).name} to user ${user.username}:\n\t${err}`);
+					setTimeout((function(reaction,user){
+						this.reactionAdded.bind(this)(reaction,user,true);
+						console.error(`Retrying...`);
+						this.__retryQueue--;
+					}).bind(this), ++this.__retryQueue*5000, reaction, user);
+				} else {
+					console.error(`Error: Adding role ${this.roles.get(reaction.emoji.name).name} to user ${user.username} failed:\n\t${err}`);
+				}
+			});
 		}
 	}
 	
 	//function called by event listener to handle reactionRemove events - this event is not triggered by the "Remove All Reactions" button
-	reactionRemoved(reaction,user)
+	reactionRemoved(reaction,user,retry = false)
 	{
 		if(reaction.message.id != this.message.id) return;
 		if(!this.reactions.has(reaction.emoji.name)) return;
@@ -100,7 +114,20 @@ class RoleCall
 		if(guild.roles.get(this.roles.get(reaction.emoji.name).id).members.has(user.id)) //check if user does not have role
 		{ 
 			guild.members.get(user.id).removeRole(this.roles.get(reaction.emoji.name))
-			.catch(err => console.error(`Error removing role ${this.roles.get(reaction.emoji.name).name} from user ${user.username}:\n\t${err}`));
+			.catch(err => 
+			{
+				if(!retry)
+				{
+					console.error(`Error removing role ${this.roles.get(reaction.emoji.name).name} from user ${user.username}:\n\t${err}`);
+					setTimeout((function(reaction,user){
+						this.reactionRemoved.bind(this)(reaction,user,true);
+						console.error(`Retrying...`);
+						this.__retryQueue--;
+					}).bind(this), ++this.__retryQueue*5000, reaction, user);
+				} else {
+					console.error(`Error: Removing role ${this.roles.get(reaction.emoji.name).name} from user ${user.username} failed:\n\t${err}`);
+				}
+			});
 		}
 	}
 }
