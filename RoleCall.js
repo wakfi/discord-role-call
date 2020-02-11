@@ -1,26 +1,42 @@
+const EventEmitter = require('events');
 const Discord = require('discord.js');
 const Collection = Discord.Collection;
 
-class RoleCall
+	/**
+	 *
+	 *  Each RoleCall can handle up to 20 roles due to Discord limiting messages to 20 reactions/message. 
+	 *	Make additional role call messages and additional, seperate RoleCall objects for them if you need
+	 * 	to call more roles.
+	 *
+	 */
+
+class RoleCall extends EventEmitter
 {
-	/*
-	 
-	 @param client: Discord.Client object representing the bot client
-	 @param config: JSON containing: 
-		@type:array roleInputArray of objects with properties{ "role":string, "emoji":string },
-		@type:string guildId, 
-		@type:string channelId,
-		@type:string messageId
-		the IDs are used to target/retrieve the role call message
-		
-	 Each RoleCall can handle up to 20 roles due to Discord limiting messages to 20 reactions/message. 
-	 Make additional role call messages and additional, seperate RoleCall objects for them if you need
-	 to call more roles.
-		
-	*/
+	/**
+	 * @param {Discord.Client} client: Represents the bot client
+	 * @param {Object} config: JSON containing
+	 * {	 
+	 *	 @param roleInputArray {array} Array of objects with properties{ "role":string, "emoji":string }
+	 *	 @param guildId {string}
+	 *	 @param channelId {string}
+	 *	 @param messageId {string}
+	 * }
+	 *	 The IDs are used to target/retrieve the role call message
+	 */
 	
 	constructor(client,config) 
 	{
+		super();
+		if(client == undefined && config == undefined)
+		{
+			/*
+			  empty constructor to make declaring listeners work.
+			  you can declare a hollow object on your initial declaration,
+			  and then redeclare your actual object with the proper constructor
+			  in your .ready event handler
+			 */
+			 return;
+		}
 		this.client = client; //this is the syntax for declaring object properties in JS
 		this.guild = client.guilds.get(config.guildId); 
 		this.guild.channels.get(config.channelId).fetchMessage(config.messageId).then(theMessage =>
@@ -76,59 +92,71 @@ class RoleCall
 	}
 	
 	//function called by event listener to handle reactionAdd events
-	reactionAdded(reaction,user,retry = false)
+	reactionAdded(reaction,user)
 	{
 		if(reaction.message.id != this.message.id) return;
 		if(!this.reactions.has(reaction.emoji.name)) return;
 		if(user.bot) return;
 		
-		let guild = this.client.guilds.get(this.guild.id);
-		if(!guild.roles.get(this.roles.get(reaction.emoji.name).id).members.has(user.id)) //check if user already has role
+		const member = this.client.guilds.get(this.guild.id).members.get(user.id);
+		const role = this.roles.get(reaction.emoji.name);
+		console.log(`firing event add`);
+		this.emit('roleReactionAdd', reaction, member, role);
+	}
+	
+	//default add handler provided for convenience. Call this if you don't want to write your own handler or don't need to add any logic. You can also call it after your own added logic
+	addRole(reaction, member, role, reason = `Role Call`, retry = false)
+	{
+		console.log(`adding role`);
+		member.addRole(role, reason)
+		.catch(err => 
 		{
-			guild.members.get(user.id).addRole(this.roles.get(reaction.emoji.name))
-			.catch(err => 
+			if(!retry)
 			{
-				if(!retry)
-				{
-					console.error(`Error adding role ${this.roles.get(reaction.emoji.name).name} to user ${user.username}:\n\t${err}`);
-					setTimeout((function(reaction,user){
-						this.reactionAdded.bind(this)(reaction,user,true);
-						console.error(`Retrying...`);
-						this.__retryQueue--;
-					}).bind(this), ++this.__retryQueue*5000, reaction, user);
-				} else {
-					console.error(`Error: Adding role ${this.roles.get(reaction.emoji.name).name} to user ${user.username} failed:\n\t${err}`);
-				}
-			});
-		}
+				console.error(`Error adding role ${role.name} to user ${user.username}:\n\t${err}`);
+				setTimeout((function(reaction,member,role,reason){
+					this.addRole.bind(this)(reaction,member,role,reason,true);
+					console.error(`Retrying...`);
+					this.__retryQueue--;
+				}).bind(this), ++this.__retryQueue*7000, reaction, member, role, reason);
+			} else {
+				console.error(`Error: Adding role ${role.name} to user ${user.username} failed:\n\t${err}`);
+			}
+		});
 	}
 	
 	//function called by event listener to handle reactionRemove events - this event is not triggered by the "Remove All Reactions" button
-	reactionRemoved(reaction,user,retry = false)
+	reactionRemoved(reaction,user)
 	{
 		if(reaction.message.id != this.message.id) return;
 		if(!this.reactions.has(reaction.emoji.name)) return;
 		if(user.bot) return;
 		
-		let guild = this.client.guilds.get(this.guild.id);
-		if(guild.roles.get(this.roles.get(reaction.emoji.name).id).members.has(user.id)) //check if user does not have role
-		{ 
-			guild.members.get(user.id).removeRole(this.roles.get(reaction.emoji.name))
-			.catch(err => 
+		const member = this.client.guilds.get(this.guild.id).members.get(user.id);
+		const role = this.roles.get(reaction.emoji.name);
+		console.log(`firing event remove`);
+		this.emit('roleReactionRemove', reaction, member, role);
+	}
+	
+	//default remove handler provided for convenience. Call this if you don't want to write your own handler or don't need to add any logic. You can also call it after your own added logic
+	removeRole(reaction, member, role, reason = `Role Call`, retry = false)
+	{
+		console.log(`removing role`);
+		member.removeRole(role, reason)
+		.catch(err => 
+		{
+			if(!retry)
 			{
-				if(!retry)
-				{
-					console.error(`Error removing role ${this.roles.get(reaction.emoji.name).name} from user ${user.username}:\n\t${err}`);
-					setTimeout((function(reaction,user){
-						this.reactionRemoved.bind(this)(reaction,user,true);
-						console.error(`Retrying...`);
-						this.__retryQueue--;
-					}).bind(this), ++this.__retryQueue*5000, reaction, user);
-				} else {
-					console.error(`Error: Removing role ${this.roles.get(reaction.emoji.name).name} from user ${user.username} failed:\n\t${err}`);
-				}
-			});
-		}
+				console.error(`Error removing role ${role.name} from user ${user.username}:\n\t${err}`);
+				setTimeout((function(reaction,member,role,reason){
+					this.removeRole.bind(this)(reaction,member,role,reason,true);
+					console.error(`Retrying...`);
+					this.__retryQueue--;
+				}).bind(this), ++this.__retryQueue*7000, reaction, member, role, reason);
+			} else {
+				console.error(`Error: Removing role ${role.name} from user ${user.username} failed:\n\t${err}`);
+			}
+		});
 	}
 }
 
