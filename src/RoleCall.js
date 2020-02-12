@@ -55,7 +55,7 @@ class RoleCall extends EventEmitter
 					reactArr.push(
 						this.message.react(emoji)
 						.then(reaction => this.reactions.set(reaction.emoji.name, reaction))
-						.catch(error => throw new Error(`Adding reaction ${emoji} to roleCall message ${this.message.id}:\n\t${error.stack}`)) //change this to catch and log instead of throwing if you don't want object construction to break
+						.catch(error => {throw new Error(`Adding reaction ${emoji} to roleCall message ${this.message.id}:\n\t${error.stack}`)}) //change this to catch and log instead of throwing if you don't want object construction to break
 					);
 				}
 			});
@@ -69,7 +69,7 @@ class RoleCall extends EventEmitter
 				this.client.on(`messageReactionRemove`, this.reactionRemoved.bind(this));
 			});
 		})
-		.catch(err => throw new Error(`Retrieving role call message: \n\t${err.stack}`));
+		.catch(err => {throw new Error(`Retrieving role call message: \n\t${err.stack}`)});
 	}
 	
 	//function called by event listener to handle reactionAdd events
