@@ -2,41 +2,23 @@ const EventEmitter = require('events');
 const Discord = require('discord.js');
 const Collection = Discord.Collection;
 
-	/**
-	 *
-	 *  Each RoleCall can handle up to 20 roles due to Discord limiting messages to 20 reactions/message. 
-	 *	Make additional role call messages and additional, seperate RoleCall objects for them if you need
-	 * 	to call more roles.
-	 *
-	 */
-
+/**
+ *
+ *  Each RoleCall can handle up to 20 roles due to Discord limiting messages to 20 reactions/message. 
+ *	Make additional role call messages and additional, seperate RoleCall objects for them if you need
+ * 	to call more roles.
+ *
+ */
 class RoleCall extends EventEmitter
 {
 	/**
 	 * @param {Discord.Client} client: Represents the bot client
-	 * @param {Object} config: JSON containing
-	 * {	 
-	 *	 @param roleInputArray {array} Array of objects with properties{ "role":string, "emoji":string }
-	 *	 @param guildId {string}
-	 *	 @param channelId {string}
-	 *	 @param messageId {string}
-	 * }
-	 *	 The IDs are used to target/retrieve the role call message
+	 * @param {Object} config: JSON containing roleInputArray of role input properties, guildId {string}, channelId {string}, and messageId {string}. 
+			   The IDs are used to target/retrieve the role call message
 	 */
-	
 	constructor(client,config) 
 	{
 		super();
-		if(client == undefined && config == undefined)
-		{
-			/*
-			  empty constructor to make declaring listeners work.
-			  you can declare a hollow object on your initial declaration,
-			  and then redeclare your actual object with the proper constructor
-			  in your .ready event handler
-			 */
-			 return;
-		}
 		this.client = client; //this is the syntax for declaring object properties in JS
 		this.guild = client.guilds.get(config.guildId); 
 		this.guild.channels.get(config.channelId).fetchMessage(config.messageId).then(theMessage =>
@@ -52,7 +34,7 @@ class RoleCall extends EventEmitter
 				{
 					this.roles.set(roleToCall.emoji, this.guild.roles.get(roleToCall.role));
 				} else {
-					console.error(`error: ${this.guild} does not have role resolvable with ${roleToCall.role}`);
+					throw new Error(`${this.guild} does not have role resolvable with ${roleToCall.role}`); //change this to log instead of throwing if you don't want object construction to break
 				}
 			});
 			
@@ -73,7 +55,7 @@ class RoleCall extends EventEmitter
 					reactArr.push(
 						this.message.react(emoji)
 						.then(reaction => this.reactions.set(reaction.emoji.name, reaction))
-						.catch(error => console.log(`Error adding reaction ${emoji} to roleCall message ${this.message.id}`))
+						.catch(error => throw new Error(`Adding reaction ${emoji} to roleCall message ${this.message.id}:\n\t${error.stack}`)) //change this to catch and log instead of throwing if you don't want object construction to break
 					);
 				}
 			});
@@ -85,10 +67,9 @@ class RoleCall extends EventEmitter
 				this.__retryQueue = 0;
 				this.client.on(`messageReactionAdd`, this.reactionAdded.bind(this));
 				this.client.on(`messageReactionRemove`, this.reactionRemoved.bind(this));
-				console.log(`done`);
 			});
 		})
-		.catch(err => console.error(`Error retrieving role call message: ${err}`));
+		.catch(err => throw new Error(`Retrieving role call message: \n\t${err.stack}`));
 	}
 	
 	//function called by event listener to handle reactionAdd events
