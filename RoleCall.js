@@ -100,27 +100,44 @@ class RoleCall extends EventEmitter
 		
 		const member = this.client.guilds.get(this.guild.id).members.get(user.id);
 		const role = this.roles.get(reaction.emoji.name);
-		console.log(`firing event add`);
 		this.emit('roleReactionAdd', reaction, member, role);
 	}
 	
+	//@throws Error
 	//default add handler provided for convenience. Call this if you don't want to write your own handler or don't need to add any logic. You can also call it after your own added logic
-	addRole(reaction, member, role, reason = `Role Call`, retry = false)
+	//returns a promise with the edited member, or an error if one is thrown
+	//when you catch the error, output its .stack property to get the full set of info, including your program lines
+	//i'm still working on making this more robust, right now it runs into issues with too many listeners due to the promises building up
+	//if you spam it pretty good
+	addRole(reaction, member, role, retry = false)
 	{
-		console.log(`adding role`);
-		member.addRole(role, reason)
-		.catch(err => 
+		const addError = new Error(`Adding role ${role.name} to user ${member.nickname || member.user.username} failed:\n\t`);
+		return new Promise(async (resolve,reject) =>
 		{
-			if(!retry)
-			{
-				console.error(`Error adding role ${role.name} to user ${user.username}:\n\t${err}`);
-				setTimeout((function(reaction,member,role,reason){
-					this.addRole.bind(this)(reaction,member,role,reason,true);
-					console.error(`Retrying...`);
+			try {
+				const newMember = await member.addRole(role);
+				resolve(newMember);
+			} catch(err) {
+				if(!retry)
+				{
+					let delay = new Promise(async(resolve,reject) =>
+					{
+						setTimeout(async function(){
+							resolve(`delay`);
+						}, ++this.__retryQueue*7000);
+					});
+					await delay;
 					this.__retryQueue--;
-				}).bind(this), ++this.__retryQueue*7000, reaction, member, role, reason);
-			} else {
-				console.error(`Error: Adding role ${role.name} to user ${user.username} failed:\n\t${err}`);
+					try {
+						const newMember = await this.addRole.bind(this)(reaction,member,role,true);
+						resolve(newMember);
+					} catch(err) {
+						addError.message += `${err.stack}`;
+						reject(addError);
+					}
+				} else {
+					reject(err);
+				}
 			}
 		});
 	}
@@ -134,27 +151,44 @@ class RoleCall extends EventEmitter
 		
 		const member = this.client.guilds.get(this.guild.id).members.get(user.id);
 		const role = this.roles.get(reaction.emoji.name);
-		console.log(`firing event remove`);
 		this.emit('roleReactionRemove', reaction, member, role);
 	}
 	
+	//@throws Error
 	//default remove handler provided for convenience. Call this if you don't want to write your own handler or don't need to add any logic. You can also call it after your own added logic
-	removeRole(reaction, member, role, reason = `Role Call`, retry = false)
+	//returns a promise with the edited member, or an error if one is thrown
+	//when you catch the error, output its .stack property to get the full set of info, including your program lines
+	//i'm still working on making this more robust, right now it runs into issues with too many listeners due to the promises building up
+	//if you spam it pretty good
+	removeRole(reaction, member, role, retry = false)
 	{
-		console.log(`removing role`);
-		member.removeRole(role, reason)
-		.catch(err => 
+		const removeError = new Error(`Removing role ${role.name} from user ${member.nickname || member.user.username} failed:\n\t`);
+		return new Promise(async (resolve,reject) =>
 		{
-			if(!retry)
-			{
-				console.error(`Error removing role ${role.name} from user ${user.username}:\n\t${err}`);
-				setTimeout((function(reaction,member,role,reason){
-					this.removeRole.bind(this)(reaction,member,role,reason,true);
-					console.error(`Retrying...`);
+			try {
+				const newMember = await member.removeRole(role);
+				resolve(newMember);
+			} catch(err) {
+				if(!retry)
+				{
+					let delay = new Promise(async(resolve,reject) =>
+					{
+						setTimeout(async function(){
+							resolve(`delay`);
+						}, ++this.__retryQueue*7000);
+					});
+					await delay;
 					this.__retryQueue--;
-				}).bind(this), ++this.__retryQueue*7000, reaction, member, role, reason);
-			} else {
-				console.error(`Error: Removing role ${role.name} from user ${user.username} failed:\n\t${err}`);
+					try {
+						const newMember = await this.removeRole.bind(this)(reaction,member,role,true);
+						resolve(newMember);
+					} catch(err) {
+						removeError.message += `${err.stack}`;
+						reject(removeError);
+					}
+				} else {
+					reject(err);
+				}
 			}
 		});
 	}
