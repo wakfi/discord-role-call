@@ -83,20 +83,21 @@ the aforementioned error.
 
 #### API
 
-The provided handlers, should you choose to use them, are functions on the objects (so you need an instance):
+The provided handlers are functions available on the object instances:<br/>
 <br/>
+
 `addRole(reaction, member, role, retry = false)`<br/>
 reaction - the reaction that was added to the message<br/>
 member - the member who added the reaction (the member to add the role to)<br/>
 role - the role to be added<br/>
-retry - whether this is a retry attempt or not. Used internally, you can just leave this blank unless you don't want it to attempt to handle errors (in which case you would put `true`)<br/>
+retry - whether this is a retry attempt or not. Used internally, just leave this blank unless you don't want it to attempt to handle errors (in which case you would put `true`)<br/>
 <br/>
-<br/>
+
 `removeRole(reaction, member, role, retry = false)`<br/>
 reaction - the reaction that was removed from the message<br/>
 member - the member who removed the reaction (the member to remove the role from)<br/>
 role - the role to be removed<br/>
-retry - whether this is a retry attempt or not. Used internally, you can just leave this blank unless you don't want it to attempt to handle errors (in which case you would put `true`)<br/>
+retry - whether this is a retry attempt or not. Used internally, just leave this blank unless you don't want it to attempt to handle errors (in which case you would put `true`)<br/>
 
 
 ### Constraints
