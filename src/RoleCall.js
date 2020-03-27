@@ -90,7 +90,7 @@ class RoleCall extends EventEmitter
 	//when you catch the error, output its .stack property to get the full set of info, including your program lines
 	//i'm still working on making this more robust, right now it runs into issues with too many listeners due to the promises building up
 	//if you spam it pretty good
-	addRole(reaction, member, role, retry = false)
+	addRole(member, role, retry = false)
 	{
 		const addError = new Error(`Adding role ${role.name} to user ${member.nickname || member.user.username} failed:\n\t`);
 		return new Promise(async (resolve,reject) =>
@@ -110,7 +110,7 @@ class RoleCall extends EventEmitter
 					await delay;
 					this.__retryQueue--;
 					try {
-						const newMember = await this.addRole.bind(this)(reaction,member,role,true);
+						const newMember = await this.addRole.bind(this)(member,role,true);
 						resolve(newMember);
 					} catch(err) {
 						addError.message += `${err.stack}`;
@@ -141,7 +141,7 @@ class RoleCall extends EventEmitter
 	//when you catch the error, output its .stack property to get the full set of info, including your program lines
 	//i'm still working on making this more robust, right now it runs into issues with too many listeners due to the promises building up
 	//if you spam it pretty good
-	removeRole(reaction, member, role, retry = false)
+	removeRole(member, role, retry = false)
 	{
 		const removeError = new Error(`Removing role ${role.name} from user ${member.nickname || member.user.username} failed:\n\t`);
 		return new Promise(async (resolve,reject) =>
@@ -161,7 +161,7 @@ class RoleCall extends EventEmitter
 					await delay;
 					this.__retryQueue--;
 					try {
-						const newMember = await this.removeRole.bind(this)(reaction,member,role,true);
+						const newMember = await this.removeRole.bind(this)(member,role,true);
 						resolve(newMember);
 					} catch(err) {
 						removeError.message += `${err.stack}`;
