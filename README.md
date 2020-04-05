@@ -111,3 +111,9 @@ easiest to declare variables at normal scope, and initialize them inside the "re
 errors so you will need to catch them if you don't want them to crash you, and the constructor will throw errors that it 
 encounters too, unless you change that in the source code (there are comments there that suggest it) so that the 
 construction won't stop.
+
+
+#### License
+
+Licensed under MIT<br/>
+Copyright (c) 2020 Walker Gray<br/>
