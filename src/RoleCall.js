@@ -66,7 +66,7 @@ class RoleCall extends EventEmitter
 				this.client.setMaxListeners(this.client.getMaxListeners() + 2);
 				this.__retryQueue = 0;
 				this.client.on(`messageReactionAdd`, this.reactionAdded.bind(this));
-				this.client.on(`messageReactionRemove`, this.reactionRemoved.bind(this));
+				this.client.on(`raw`, this.rawPacket.bind(this));
 			});
 		})
 		.catch(err => {throw new Error(`Retrieving role call message: \n\t${err.stack}`)});
@@ -123,16 +123,36 @@ class RoleCall extends EventEmitter
 		});
 	}
 	
-	//function called by event listener to handle reactionRemove events - this event is not triggered by the "Remove All Reactions" button
-	reactionRemoved(reaction,user)
+	//function called by event listener to handle raw packets - enables handling of uncached reactions
+	rawPacket(packet)
 	{
-		if(reaction.message.id != this.message.id) return;
-		if(!this.reactions.has(reaction.emoji.name)) return;
-		if(user.bot) return;
-		
-		const member = this.client.guilds.get(this.guild.id).members.get(user.id);
-		const role = this.roles.get(reaction.emoji.name);
-		this.emit('roleReactionRemove', reaction, member, role);
+		// We don't want this to run on unrelated packets
+		if (!['MESSAGE_REACTION_REMOVE'].includes(packet.t)) return;
+		//don't want to do it on any message other than the target
+		if(packet.d.message_id != this.message.id) return;
+		// Grab the channel to check the message from
+		const channel = this.client.channels.get(packet.d.channel_id);
+		// There's no need to emit if the message is cached, because the event will fire anyway for that
+		// if (channel.messages.has(packet.d.message_id)) return;
+		// Since we have confirmed the message is not cached, let's fetch it
+		channel.fetchMessage(packet.d.message_id).then(message => {
+			// Emojis can have identifiers of name:id format, so we have to account for that case as well
+			const emoji = packet.d.emoji.id ? `${packet.d.emoji.name}:${packet.d.emoji.id}` : packet.d.emoji.name;
+			// This gives us the reaction we need to emit the event properly, in top of the message object
+			const reaction = message.reactions.get(emoji);
+			
+			//more early returns
+			if(!this.reactions.has(reaction.emoji.name)) return;
+			
+			const user = this.client.users.get(packet.d.user_id);
+			if(user.bot) return;
+			// Adds the currently reacting user to the reaction's users collection.
+			if (reaction) reaction.users.set(packet.d.user_id, user);
+			// Check which type of event it is before emitting
+			const member = this.client.guilds.get(this.guild.id).members.get(user.id);
+			const role = this.roles.get(reaction.emoji.name);
+			this.emit('roleReactionRemove', reaction, member, role);
+		});
 	}
 	
 	//@throws Error
