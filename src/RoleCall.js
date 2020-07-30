@@ -76,7 +76,7 @@ class RoleCall extends EventEmitter
 		// We don't want this to run on unrelated packets
 		if (!['MESSAGE_REACTION_ADD', 'MESSAGE_REACTION_REMOVE'].includes(packet.t)) return;
 		// Grab the channel to check the message from
-		const channel = await client.channels.fetch(packet.d.channel_id);
+		const channel = await this.client.channels.fetch(packet.d.channel_id);
 		// Grab the message
 		const message = await channel.messages.fetch(packet.d.message_id);
 		
@@ -89,7 +89,7 @@ class RoleCall extends EventEmitter
 		// More early returns
 		if(!this.reactions.has(reaction.emoji.name)) return;
 		
-		const user = await client.users.fetch(packet.d.user_id);
+		const user = await this.client.users.fetch(packet.d.user_id);
 		//Don't need to execute commands on actions from bots
 		if(user.bot) return; 
 		// Adds the currently reacting user to the reaction's users collection.
