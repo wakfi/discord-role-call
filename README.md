@@ -4,8 +4,8 @@
 This package enables management of automated Role-Calling. You will need a Discord.js bot to use it. Additionally, 
 please ensure that you place at least one of your bot's roles above the roles you wish to manage under Role Call.
 
-  !! PLEASE NOTE THAT THIS PACKAGE USES DISCORD.JS v11 !!
-A v12 compatible version will be released in the near future
+# Updated for Discord.js v12!
+Please use any release version 3.x or greater for v12 compatability
 
 [![NPM version](http://img.shields.io/npm/v/discord-role-call.svg)](https://www.npmjs.org/package/discord-role-call)
 [![License](https://img.shields.io/npm/l/express.svg)](https://github.com/wakfi/discord-role-call/blob/master/LICENSE)
