@@ -1,6 +1,6 @@
+const path = require('path');
 const EventEmitter = require('events');
-const Discord = require('discord.js');
-const Collection = Discord.Collection;
+const Collection = require((require.resolve('discord.js')).split(path.sep).slice(0, -1).join(path.sep) + `${path.sep}util${path.sep}Collection.js`);
 
 /**
  *
@@ -20,26 +20,25 @@ class RoleCall extends EventEmitter
 	{
 		super();
 		this.client = client; //this is the syntax for declaring object properties in JS
-		this.guild = client.guilds.get(config.guildId); 
-		this.guild.channels.get(config.channelId).fetchMessage(config.messageId).then(theMessage =>
+		this.guild = client.guilds.cache.get(config.guildId); 
+		this.guild.channels.cache.get(config.channelId).messages.fetch(config.messageId).then(theMessage =>
 		{
 			this.message = theMessage; //because we need the message object, we have to retrieve it, and because internet, this takes time. so we have to wait and set it here
 			this.roles = new Collection(); //@type: Collection<Snowflake, Role> where Snowflake is the snowflake of the emoji that is associate with the role 
 			this.reactions = new Collection(); //@type: Collection<Snowflake,MessageReaction> passed in as emoji resolvables								  
 			let reactArr = []; //this is a local variable that will be used during construction
-			
 			//set roles collection. Collection is an extension of javascript Map object with expanded functionality, primarily for mapping ID (aka snowflake) to object
-			config.roleInputArray.map(roleToCall => { 
-				if(this.guild.roles.has(roleToCall.role))
-				{
-					this.roles.set(roleToCall.emoji, this.guild.roles.get(roleToCall.role));
-				} else {
+			config.roleInputArray.map(async roleToCall => { 
+				try {
+					this.roles.set(roleToCall.emoji, await this.guild.roles.fetch(roleToCall.role));
+				} catch(e) {
+					console.error(e.stack);
 					throw new Error(`${this.guild} does not have role resolvable with ${roleToCall.role}`); //change this to log instead of throwing if you don't want object construction to break
 				}
 			});
 			
 			//collect matching reaction objects from existing reactions
-			this.message.reactions && this.message.reactions.array().map(reaction => 
+			this.message.reactions && this.message.reactions.cache.mapValues(reaction => 
 			{
 				if(this.roles.has(reaction.emoji.name))
 				{
@@ -61,10 +60,10 @@ class RoleCall extends EventEmitter
 			});
 			
 			//wait until client finishes adding its own reactions before adding the reaction listeners, so that it doesnt try to handle iteself
-			Promise.all(reactArr).then(async done => 
+			Promise.all(reactArr).then(done => 
 			{
-				this.client.setMaxListeners(this.client.getMaxListeners() + 1);
 				this.__retryQueue = 0;
+				this.client.setMaxListeners(this.client.getMaxListeners() + 1);
 				this.client.on(`raw`, this.rawPacket.bind(this));
 			});
 		})
@@ -72,40 +71,39 @@ class RoleCall extends EventEmitter
 	}
 	
 	//function called by event listener to handle raw packets - enables handling of uncached reactions
-	rawPacket(packet)
+	async rawPacket(packet)
 	{
 		// We don't want this to run on unrelated packets
-		if (!['MESSAGE_REACTION_ADD','MESSAGE_REACTION_REMOVE'].includes(packet.t)) return;
-		//don't want to do it on any message other than the target
-		if(packet.d.message_id != this.message.id) return;
+		if (!['MESSAGE_REACTION_ADD', 'MESSAGE_REACTION_REMOVE'].includes(packet.t)) return;
 		// Grab the channel to check the message from
-		const channel = this.client.channels.get(packet.d.channel_id);
-		// There's no need to emit if the message is cached, because the event will fire anyway for that
-		// if (channel.messages.has(packet.d.message_id)) return;
-		// Since we have confirmed the message is not cached, let's fetch it
-		channel.fetchMessage(packet.d.message_id).then(message => {
-			// Emojis can have identifiers of name:id format, so we have to account for that case as well
-			const emoji = packet.d.emoji.id ? `${packet.d.emoji.name}:${packet.d.emoji.id}` : packet.d.emoji.name;
-			// This gives us the reaction we need to emit the event properly, in top of the message object
-			const reaction = message.reactions.get(emoji);
-			
-			//more early returns
-			if(!this.reactions.has(reaction.emoji.name)) return;
-			
-			const user = this.client.users.get(packet.d.user_id);
-			if(user.bot) return;
-			// Adds the currently reacting user to the reaction's users collection.
-			if (reaction) reaction.users.set(packet.d.user_id, user);
-			// Check which type of event it is before emitting
-			const member = this.client.guilds.get(this.guild.id).members.get(user.id);
-			const role = this.roles.get(reaction.emoji.name);
-			if(packet.t === 'MESSAGE_REACTION_ADD')
-			{
-				this.emit('roleReactionAdd', reaction, member, role);
-			} else if(packet.t === 'MESSAGE_REACTION_REMOVE') {
-				this.emit('roleReactionRemove', reaction, member, role);
-			}
-		});
+		const channel = await client.channels.fetch(packet.d.channel_id);
+		// Grab the message
+		const message = await channel.messages.fetch(packet.d.message_id);
+		
+		// Emojis can have identifiers of name:id format, so we have to account for that case as well
+		const emoji = packet.d.emoji.id ? `${packet.d.emoji.name}:${packet.d.emoji.id}` : packet.d.emoji.name;
+		
+		// This gives us the reaction we need to emit the event properly, in top of the message object
+		const reaction = message.reactions.cache.get(emoji);
+		
+		// More early returns
+		if(!this.reactions.has(reaction.emoji.name)) return;
+		
+		const user = await client.users.fetch(packet.d.user_id);
+		//Don't need to execute commands on actions from bots
+		if(user.bot) return; 
+		// Adds the currently reacting user to the reaction's users collection.
+		if (reaction) reaction.users.cache.set(packet.d.user_id, user);
+		else return console.error(`Could not retrieve reaction for emoji ${emoji}`);
+		const member = await this.client.guilds.cache.get(this.guild.id).members.fetch(user.id);
+		const role = this.roles.get(reaction.emoji.name);
+		// Check which type of event it is before emitting
+		if(packet.t === 'MESSAGE_REACTION_ADD')
+		{
+			this.emit('roleReactionAdd', reaction, member, role);
+		} else if(packet.t === 'MESSAGE_REACTION_REMOVE') {
+			this.emit('roleReactionRemove', reaction, member, role);
+		}
 	} 
 	
 	//@throws Error
@@ -120,7 +118,7 @@ class RoleCall extends EventEmitter
 		return new Promise(async (resolve,reject) =>
 		{
 			try {
-				const newMember = await member.addRole(role);
+				const newMember = await member.roles.add(role);
 				resolve(newMember);
 			} catch(err) {
 				if(!retry)
@@ -128,7 +126,7 @@ class RoleCall extends EventEmitter
 					let delay = new Promise(async(resolve,reject) =>
 					{
 						setTimeout(async function(){
-							resolve(`delay`);
+							resolve();
 						}, ++this.__retryQueue*7000);
 					});
 					await delay;
@@ -159,7 +157,7 @@ class RoleCall extends EventEmitter
 		return new Promise(async (resolve,reject) =>
 		{
 			try {
-				const newMember = await member.removeRole(role);
+				const newMember = await member.roles.remove(role);
 				resolve(newMember);
 			} catch(err) {
 				if(!retry)
@@ -167,7 +165,7 @@ class RoleCall extends EventEmitter
 					let delay = new Promise(async(resolve,reject) =>
 					{
 						setTimeout(async function(){
-							resolve(`delay`);
+							resolve();
 						}, ++this.__retryQueue*7000);
 					});
 					await delay;
