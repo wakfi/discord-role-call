@@ -21,7 +21,7 @@ class RoleCall extends EventEmitter
 		super();
 		this.client = client; //this is the syntax for declaring object properties in JS
 		this.guild = client.guilds.get(config.guildId); 
-		this.guild.channels.get(config.channelId).fetchMessage(config.messageId).then(theMessage =>
+		this.guild.channels.get(config.channelId).fetchMessage(config.messageId).then(async theMessage =>
 		{
 			this.message = theMessage; //because we need the message object, we have to retrieve it, and because internet, this takes time. so we have to wait and set it here
 			this.roles = new Collection(); //@type: Collection<Snowflake, Role> where Snowflake is the snowflake of the emoji that is associate with the role 
@@ -48,25 +48,25 @@ class RoleCall extends EventEmitter
 			});
 			
 			//fill in any remaining reactions as required in order to fill out collections
-			if(this.reactions.size < config.roleInputArray.length) config.roleInputArray.map(roleToCall => { 
-				if(!this.reactions.has(roleToCall.emoji))
+			if(this.reactions.size < config.roleInputArray.length) 
+			{
+				for(let i = 0; i < config.roleInputArray.length; i++)
 				{
-					let emoji = roleToCall.emoji.includes(`<`) ? guild.emoji.names.get(roleToCall.emoji) : roleToCall.emoji;
-					reactArr.push(
-						this.message.react(emoji)
+					const roleToCall = config.roleInputArray[i];
+					if(!this.reactions.has(roleToCall.emoji))
+					{
+						let emoji = roleToCall.emoji.includes(`<`) ? guild.emoji.names.get(roleToCall.emoji) : roleToCall.emoji;
+						await this.message.react(emoji)
 						.then(reaction => this.reactions.set(reaction.emoji.name, reaction))
-						.catch(error => {throw new Error(`Adding reaction ${emoji} to roleCall message ${this.message.id}:\n\t${error.stack}`)}) //change this to catch and log instead of throwing if you don't want object construction to break
-					);
+						.catch(error => {throw new Error(`Adding reaction ${emoji} to roleCall message ${this.message.id}:\n\t${error.stack}`)}); //change this to catch and log instead of throwing if you don't want object construction to break
+					}
 				}
-			});
+			}
 			
 			//wait until client finishes adding its own reactions before adding the reaction listeners, so that it doesnt try to handle iteself
-			Promise.all(reactArr).then(async done => 
-			{
-				this.client.setMaxListeners(this.client.getMaxListeners() + 1);
-				this.__retryQueue = 0;
-				this.client.on(`raw`, this.rawPacket.bind(this));
-			});
+			this.client.setMaxListeners(this.client.getMaxListeners() + 1);
+			this.__retryQueue = 0;
+			this.client.on(`raw`, this.rawPacket.bind(this));
 		})
 		.catch(err => {throw new Error(`Retrieving role call message: \n\t${err.stack}`)});
 	}
@@ -87,15 +87,19 @@ class RoleCall extends EventEmitter
 			// Emojis can have identifiers of name:id format, so we have to account for that case as well
 			const emoji = packet.d.emoji.id ? `${packet.d.emoji.name}:${packet.d.emoji.id}` : packet.d.emoji.name;
 			// This gives us the reaction we need to emit the event properly, in top of the message object
-			const reaction = message.reactions.get(emoji);
+			const reaction = message.reactions.get(emoji) || this.reactions.get(packet.d.emoji.name);
+			if(!message.reactions.has(emoji))
 			
 			//more early returns
-			if(!this.reactions.has(reaction.emoji.name)) return;
+			if(!reaction) return;
+			if(!this.reactions.has(packet.d.emoji.name)) return;
 			
 			const user = this.client.users.get(packet.d.user_id);
-			if(user.bot) return;
 			// Adds the currently reacting user to the reaction's users collection.
-			if (reaction) reaction.users.set(packet.d.user_id, user);
+			reaction.users.set(packet.d.user_id, user);
+			this.reactions.set(reaction.emoji.name, reaction);
+			message.reactions.set(emoji, reaction);
+			if(user.bot) return;
 			// Check which type of event it is before emitting
 			const member = this.client.guilds.get(this.guild.id).members.get(user.id);
 			const role = this.roles.get(reaction.emoji.name);
