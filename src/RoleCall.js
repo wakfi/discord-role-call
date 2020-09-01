@@ -189,6 +189,16 @@ class RoleCall extends EventEmitter
 			}
 		});
 	}
+	
+	//remove role & reaction, using role to find the reaction
+	//returns the promise from removeRole
+	removeReaction(member, role, retry = false)
+	{
+		const emoji = this.roles.findKey(val => val.id == role.id);
+		const reaction = this.reactions.get(emoji);
+		reaction.remove(member).catch(e=>console.error(e.stack));
+		return this.removeRole(member, role, retry);
+	}
 }
 
 module.exports = RoleCall;
