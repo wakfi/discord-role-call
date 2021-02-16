@@ -97,7 +97,7 @@ class RoleCall extends EventEmitter
 	rawPacket(packet)
 	{
 		// We don't want this to run on unrelated packets
-		if (!packet.d.emoji) return;
+		if (!['MESSAGE_REACTION_ADD','MESSAGE_REACTION_REMOVE'].includes(packet.t)) return;
 		// We don't want to run on any message other than the RoleCall target
 		if(packet.d.message_id != this.message.id) return;
 		// Grab the channel the message is from
