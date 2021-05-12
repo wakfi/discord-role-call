@@ -72,7 +72,7 @@ class RoleCall extends EventEmitter
 				{ 
 					if(!this.reactions.has(roleToCall.emoji))
 					{
-						let emoji = roleToCall.emoji.includes(`<`) ? this.guild.emoji.names.cache.get(roleToCall.emoji) : roleToCall.emoji;
+						let emoji = roleToCall.emoji.includes(`<`) ? this.guild.emojis.cache.get(roleToCall.emoji) : roleToCall.emoji;
 						reactArr.push(
 							this.message.react(emoji)
 							.then(reaction => this.reactions.set(reaction.emoji.name, reaction))
