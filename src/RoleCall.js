@@ -218,7 +218,7 @@ class RoleCall extends EventEmitter
 	// Returns the promise from RoleCall#removeRole
 	removeReaction(member, role, retry = false)
 	{
-		const emoji = this.roleEmojiPairs.findKey(val => val.id == role.id);
+		const emoji = this.roleEmojiPairs.findKey(val => val.id == role);
 		const reaction = this.reactions.get(emoji);
 		reaction.users.remove(member).catch(e=>console.error(e.stack)); // An error here is non-fatal, lets removeRole figure that out
 		return this.removeRole(member, role, retry);
